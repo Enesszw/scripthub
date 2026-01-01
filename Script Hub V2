@@ -1,101 +1,48 @@
---[[
-    Terminal UI Library
-    A customizable terminal/console UI library for Roblox
-    
-    Usage:
-        local TerminalLib = loadstring(game:HttpGet("your-url-here"))()
-        
-        local terminal = TerminalLib.new({
-            username = "admin",
-            hostname = "server",
-            theme = "arch", -- "arch", "ubuntu", "windows", "matrix"
-            fontSize = 14,
-            enableMatrix = false
-        })
-        
-        terminal:addCommand("hello", function(args)
-            return "Hello, " .. (args[1] or "World") .. "!"
-        end, "Greets the user")
-        
-        terminal:show()
+--[[ 
+    Arch Linux Terminal UI Library 
+    Converted & Optimized
 ]]
 
-local TerminalLibrary = {}
-TerminalLibrary.__index = TerminalLibrary
-TerminalLibrary.Version = "1.0.0"
+local ArchUI = {}
+ArchUI.__index = ArchUI
 
--- Themes Configuration
-local Themes = {
-    arch = {
-        bgColor = Color3.fromRGB(10, 10, 10),
-        textColor = Color3.fromRGB(203, 204, 205),
-        accentColor = Color3.fromRGB(23, 147, 209),
-        successColor = Color3.fromRGB(122, 192, 101),
-        errorColor = Color3.fromRGB(255, 85, 85),
-        warningColor = Color3.fromRGB(255, 203, 107),
-        promptFormat = "[<user>@<host> <dir>]$ ",
-        bootSequence = true,
-        neofetch = true
-    },
-    ubuntu = {
-        bgColor = Color3.fromRGB(48, 10, 36),
-        textColor = Color3.fromRGB(255, 255, 255),
-        accentColor = Color3.fromRGB(233, 84, 32),
-        successColor = Color3.fromRGB(0, 255, 0),
-        errorColor = Color3.fromRGB(255, 0, 0),
-        warningColor = Color3.fromRGB(255, 255, 0),
-        promptFormat = "<user>@<host>:<dir>$ ",
-        bootSequence = false,
-        neofetch = false
-    },
-    windows = {
-        bgColor = Color3.fromRGB(12, 12, 12),
-        textColor = Color3.fromRGB(204, 204, 204),
-        accentColor = Color3.fromRGB(0, 120, 215),
-        successColor = Color3.fromRGB(22, 198, 12),
-        errorColor = Color3.fromRGB(231, 72, 86),
-        warningColor = Color3.fromRGB(249, 241, 165),
-        promptFormat = "<dir>> ",
-        bootSequence = false,
-        neofetch = false
-    },
-    matrix = {
-        bgColor = Color3.fromRGB(0, 0, 0),
-        textColor = Color3.fromRGB(0, 255, 65),
-        accentColor = Color3.fromRGB(0, 255, 65),
-        successColor = Color3.fromRGB(0, 255, 65),
-        errorColor = Color3.fromRGB(255, 0, 0),
-        warningColor = Color3.fromRGB(255, 255, 0),
-        promptFormat = "> ",
-        bootSequence = false,
-        neofetch = false
-    }
+-- Terminal Class
+local Terminal = {}
+Terminal.__index = Terminal
+
+-- Varsayılan Ayarlar
+local DefaultConfig = {
+    username = "user",
+    hostname = "arch",
+    bgColor = Color3.fromRGB(10, 10, 10),
+    textColor = Color3.fromRGB(203, 204, 205),
+    archBlue = Color3.fromRGB(23, 147, 209),
+    green = Color3.fromRGB(122, 192, 101),
+    red = Color3.fromRGB(255, 85, 85),
+    yellow = Color3.fromRGB(255, 203, 107),
+    fontSize = 13,
+    maxLines = 300,
+    draggable = true
 }
 
-function TerminalLibrary.new(config)
-    local self = setmetatable({}, TerminalLibrary)
+function ArchUI.new(config)
+    local self = setmetatable({}, Terminal)
     
     config = config or {}
+    for k, v in pairs(DefaultConfig) do
+        self[k] = config[k] or v
+    end
+
+    -- Parent ayarı (Otomatik PlayerGui bulur)
+    local player = game:GetService("Players").LocalPlayer
+    local parent = config.parent or (player and player:WaitForChild("PlayerGui"))
     
-    -- Theme setup
-    local theme = Themes[config.theme or "arch"] or Themes.arch
-    
-    self.bgColor = config.bgColor or theme.bgColor
-    self.textColor = config.textColor or theme.textColor
-    self.accentColor = config.accentColor or theme.accentColor
-    self.successColor = config.successColor or theme.successColor
-    self.errorColor = config.errorColor or theme.errorColor
-    self.warningColor = config.warningColor or theme.warningColor
-    self.fontSize = config.fontSize or 13
-    self.username = config.username or game.Players.LocalPlayer.Name:lower()
-    self.hostname = config.hostname or "localhost"
-    self.maxLines = config.maxLines or 300
-    self.promptFormat = config.promptFormat or theme.promptFormat
-    self.enableBootSequence = config.enableBootSequence ~= nil and config.enableBootSequence or theme.bootSequence
-    self.enableNeofetch = config.enableNeofetch ~= nil and config.enableNeofetch or theme.neofetch
-    self.enableMatrix = config.enableMatrix or false
-    self.theme = config.theme or "arch"
-    
+    if not parent then
+        warn("ArchUI: Parent bulunamadı!")
+        return nil
+    end
+
+    -- Dosya Sistemi ve Ortam Değişkenleri
     self.currentDir = "~"
     self.env = {
         HOME = "/home/" .. self.username,
@@ -107,353 +54,126 @@ function TerminalLibrary.new(config)
         LANG = "en_US.UTF-8"
     }
     
-    -- File system
+    -- Varsayılan Dosya Sistemi
     self.fileSystem = {
-        ["~"] = {type = "dir", children = {"Desktop", "Documents", "Downloads"}},
+        ["~"] = {type = "dir", children = {"Desktop", "Documents", "Downloads", ".bashrc"}},
         ["~/Desktop"] = {type = "dir", children = {}},
         ["~/Documents"] = {type = "dir", children = {"readme.txt"}},
         ["~/Downloads"] = {type = "dir", children = {}},
-        ["~/Documents/readme.txt"] = {type = "file", content = "Welcome to Terminal UI Library!"}
+        ["~/.bashrc"] = {type = "file", content = "alias ls='ls --color=auto'\nPS1='[\\u@\\h \\W]\\$ '"},
+        ["~/Documents/readme.txt"] = {type = "file", content = "ArchUI Library v1.0\nCreated for custom scripting."}
     }
     
     self.commands = {}
     self.history = {}
     self.historyIndex = 0
     self.output = {}
-    self.booting = self.enableBootSequence
+    self.booting = true
     self.matrixEnabled = false
     self.matrixColumns = {}
     
-    -- Callbacks
-    self.onCommandExecute = nil
-    self.onShow = nil
-    self.onHide = nil
-    self.onDestroy = nil
+    self:createUI(parent)
     
-    self:createUI()
-    self:registerDefaultCommands()
-    
-    if self.enableBootSequence then
-        self:startBootSequence()
-    else
+    -- Eğer config'de bootanimasyonunu kapatmak istersen: config.skipBoot = true
+    if config.skipBoot then
         self.booting = false
+        self:registerDefaultCommands()
         self:updatePrompt()
         self.inputBox.Visible = true
         self.cursor.Visible = true
+        self:Print("<font color='rgb(122,192,101)'>System Ready.</font>")
         task.wait()
         self.inputBox:CaptureFocus()
-    end)
-end
-
-function TerminalLibrary:registerDefaultCommands()
-    self:addCommand("help", function()
-        local cmds = {}
-        for name, data in pairs(self.commands) do
-            table.insert(cmds, name .. " - " .. data.description)
-        end
-        table.sort(cmds)
-        return "Available Commands:\n" .. table.concat(cmds, "\n")
-    end, "Shows all available commands")
-    
-    self:addCommand("clear", function()
-        self:clear()
-        return ""
-    end, "Clears the terminal screen")
-    
-    self:addCommand("echo", function(args)
-        return table.concat(args, " ")
-    end, "Prints text to the terminal")
-    
-    self:addCommand("history", function()
-        if #self.history == 0 then return "No history" end
-        local result = {}
-        for i, cmd in ipairs(self.history) do
-            table.insert(result, string.format("%5d  %s", i, cmd))
-        end
-        return table.concat(result, "\n")
-    end, "Shows command history")
-    
-    self:addCommand("exit", function()
-        self:destroy()
-        return ""
-    end, "Closes the terminal")
-    
-    self:addCommand("theme", function(args)
-        if not args[1] then
-            return "Available themes: arch, ubuntu, windows, matrix"
-        end
-        if self:setTheme(args[1]) then
-            return "Theme changed to " .. args[1]
-        else
-            return "Invalid theme. Available: arch, ubuntu, windows, matrix"
-        end
-    end, "Changes terminal theme")
-    
-    self:addCommand("matrix", function()
-        if self:toggleMatrix() then
-            return "Matrix effect enabled"
-        else
-            return "Matrix effect disabled"
-        end
-    end, "Toggles Matrix rain effect")
-    
-    self:addCommand("ls", function(args)
-        local path = self.currentDir
-        if args[1] then
-            path = self.currentDir .. "/" .. args[1]
-        end
-        
-        local fs = self.fileSystem[path]
-        if not fs then return "ls: cannot access '" .. (args[1] or ".") .. "': No such file or directory" end
-        if fs.type ~= "dir" then return "ls: " .. (args[1] or ".") .. ": Not a directory" end
-        
-        local items = {}
-        for _, item in ipairs(fs.children) do
-            table.insert(items, item)
-        end
-        return table.concat(items, "  ")
-    end, "Lists directory contents")
-    
-    self:addCommand("cd", function(args)
-        if not args[1] or args[1] == "~" then
-            self.currentDir = "~"
-        elseif args[1] == ".." then
-            if self.currentDir ~= "~" then
-                local parts = {}
-                for part in self.currentDir:gmatch("[^/]+") do
-                    table.insert(parts, part)
-                end
-                table.remove(parts)
-                self.currentDir = #parts > 0 and table.concat(parts, "/") or "~"
-            end
-        else
-            local newPath = self.currentDir .. "/" .. args[1]
-            if not self.fileSystem[newPath] then
-                return "cd: " .. args[1] .. ": No such file or directory"
-            end
-            if self.fileSystem[newPath].type ~= "dir" then
-                return "cd: " .. args[1] .. ": Not a directory"
-            end
-            self.currentDir = newPath
-        end
-        self:updatePrompt()
-        return ""
-    end, "Changes directory")
-    
-    self:addCommand("cat", function(args)
-        if not args[1] then return "cat: missing file operand" end
-        local path = self.currentDir .. "/" .. args[1]
-        local fs = self.fileSystem[path]
-        if not fs then return "cat: " .. args[1] .. ": No such file or directory" end
-        if fs.type ~= "file" then return "cat: " .. args[1] .. ": Is a directory" end
-        return fs.content
-    end, "Displays file contents")
-    
-    self:addCommand("whoami", function()
-        return self.username
-    end, "Shows current username")
-    
-    self:addCommand("pwd", function()
-        return self.currentDir == "~" and "/home/" .. self.username or "/home/" .. self.username .. "/" .. self.currentDir:gsub("~/", "")
-    end, "Shows current directory")
-    
-    self:addCommand("mkdir", function(args)
-        if not args[1] then return "mkdir: missing operand" end
-        local path = self.currentDir .. "/" .. args[1]
-        if self.fileSystem[path] then return "mkdir: cannot create directory '" .. args[1] .. "': File exists" end
-        self.fileSystem[path] = {type = "dir", children = {}}
-        table.insert(self.fileSystem[self.currentDir].children, args[1])
-        return ""
-    end, "Creates a new directory")
-    
-    self:addCommand("touch", function(args)
-        if not args[1] then return "touch: missing file operand" end
-        local path = self.currentDir .. "/" .. args[1]
-        if self.fileSystem[path] then return "" end
-        self.fileSystem[path] = {type = "file", content = ""}
-        table.insert(self.fileSystem[self.currentDir].children, args[1])
-        return ""
-    end, "Creates a new file")
-    
-    self:addCommand("rm", function(args)
-        if not args[1] then return "rm: missing operand" end
-        local path = self.currentDir .. "/" .. args[1]
-        if not self.fileSystem[path] then return "rm: cannot remove '" .. args[1] .. "': No such file or directory" end
-        
-        self.fileSystem[path] = nil
-        local children = self.fileSystem[self.currentDir].children
-        for i, child in ipairs(children) do
-            if child == args[1] then
-                table.remove(children, i)
-                break
-            end
-        end
-        return ""
-    end, "Removes a file or directory")
-    
-    self:addCommand("date", function()
-        return os.date("%a %b %d %I:%M:%S %p %Y")
-    end, "Shows current date and time")
-    
-    self:addCommand("version", function()
-        return "Terminal UI Library v" .. TerminalLibrary.Version
-    end, "Shows library version")
-end
-
--- Example usage code at the bottom
---[[
-local TerminalLib = require(script) -- or loadstring for external loading
-
--- Basic usage
-local terminal = TerminalLib.new({
-    username = "admin",
-    hostname = "server",
-    theme = "arch",
-    enableMatrix = false
-})
-
--- Add custom command
-terminal:addCommand("test", function(args)
-    return "Test command executed with args: " .. table.concat(args, ", ")
-end, "A test command")
-
--- Write some text
-terminal:writeLine("Welcome to Terminal UI Library!")
-terminal:writeSuccess("System initialized")
-
--- Show the terminal
-terminal:show()
-]]
-
-return TerminalLibraryVisible = true
-        self.cursor.Visible = true
-    end
-    
-    if self.enableMatrix then
-        self:toggleMatrix()
+    else
+        self:startBootSequence()
     end
     
     return self
 end
 
-function TerminalLibrary:createUI()
-    local Players = game:GetService("Players")
-    local player = Players.LocalPlayer
-    local playerGui = player:WaitForChild("PlayerGui")
-    
+-- UI Oluşturma
+function Terminal:createUI(parent)
     local sg = Instance.new("ScreenGui")
-    sg.Name = "TerminalUI"
+    sg.Name = "ArchTerminalUI"
     sg.ResetOnSpawn = false
     sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     sg.IgnoreGuiInset = true
-    sg.Parent = playerGui
+    sg.Parent = parent
     
     local bg = Instance.new("Frame")
     bg.Name = "Background"
     bg.Size = UDim2.new(1, 0, 1, 0)
     bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     bg.BackgroundTransparency = 0.3
-    bg.BorderSizePixel = 0
-    bg.ZIndex = 9
     bg.Visible = false
     bg.Parent = sg
     
     local frame = Instance.new("Frame")
-    frame.Name = "Terminal"
-    frame.Size = UDim2.new(0, 1100, 0, 700)
-    frame.Position = UDim2.new(0.5, -550, 0.5, -350)
+    frame.Name = "TerminalWindow"
+    frame.Size = UDim2.new(0, 800, 0, 500) -- Varsayılan boyut
+    frame.Position = UDim2.new(0.5, -400, 0.5, -250)
     frame.BackgroundColor3 = self.bgColor
     frame.BorderSizePixel = 0
-    frame.ZIndex = 10
+    frame.ClipsDescendants = true
     frame.Parent = sg
     
-    -- Matrix canvas
+    -- Matrix Canvas
     local matrixCanvas = Instance.new("Frame")
     matrixCanvas.Name = "MatrixCanvas"
     matrixCanvas.Size = UDim2.new(1, 0, 1, -30)
     matrixCanvas.Position = UDim2.new(0, 0, 0, 30)
     matrixCanvas.BackgroundTransparency = 1
-    matrixCanvas.BorderSizePixel = 0
-    matrixCanvas.ZIndex = 9
-    matrixCanvas.ClipsDescendants = true
     matrixCanvas.Visible = false
+    matrixCanvas.ZIndex = 1
+    matrixCanvas.ClipsDescendants = true
     matrixCanvas.Parent = frame
-    
-    -- Title bar
+    self.matrixCanvas = matrixCanvas
+
+    -- Title Bar
     local titleBar = Instance.new("Frame")
-    titleBar.Name = "TitleBar"
     titleBar.Size = UDim2.new(1, 0, 0, 30)
     titleBar.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     titleBar.BorderSizePixel = 0
-    titleBar.ZIndex = 11
     titleBar.Parent = frame
     
-    local titleBarBottom = Instance.new("Frame")
-    titleBarBottom.Size = UDim2.new(1, 0, 0, 1)
-    titleBarBottom.Position = UDim2.new(0, 0, 1, 0)
-    titleBarBottom.BackgroundColor3 = self.accentColor
-    titleBarBottom.BorderSizePixel = 0
-    titleBarBottom.ZIndex = 11
-    titleBarBottom.Parent = titleBar
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -80, 1, 0)
+    titleLabel.Position = UDim2.new(0, 12, 0, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = self.username .. "@" .. self.hostname .. ":~"
+    titleLabel.TextColor3 = self.textColor
+    titleLabel.Font = Enum.Font.Code
+    titleLabel.TextSize = 12
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = titleBar
+    self.titleLabel = titleLabel
+
+    -- Close Button
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 12, 0, 12)
+    closeBtn.Position = UDim2.new(1, -25, 0.5, -6)
+    closeBtn.BackgroundColor3 = self.red
+    closeBtn.Text = ""
+    closeBtn.Parent = titleBar
+    local corner = Instance.new("UICorner", closeBtn); corner.CornerRadius = UDim.new(1,0)
     
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -80, 1, 0)
-    title.Position = UDim2.new(0, 12, 0, 0)
-    title.BackgroundTransparency = 1
-    title.Text = "  Terminal - " .. self.username .. "@" .. self.hostname
-    title.TextColor3 = Color3.fromRGB(203, 204, 205)
-    title.TextSize = 12
-    title.Font = Enum.Font.Code
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.ZIndex = 12
-    title.Parent = titleBar
+    closeBtn.MouseButton1Click:Connect(function()
+        self:Destroy()
+    end)
     
-    -- Window control buttons
-    local btnX = {40, 60, 80}
-    local btnColors = {self.errorColor, self.warningColor, self.successColor}
-    for i, x in ipairs(btnX) do
-        local btn = Instance.new("Frame")
-        btn.Size = UDim2.new(0, 12, 0, 12)
-        btn.Position = UDim2.new(1, -x, 0.5, -6)
-        btn.BackgroundColor3 = btnColors[i]
-        btn.BorderSizePixel = 0
-        btn.ZIndex = 12
-        btn.Parent = titleBar
-        
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(1, 0)
-        corner.Parent = btn
-        
-        if i == 1 then
-            local closeBtn = Instance.new("TextButton")
-            closeBtn.Size = UDim2.new(1, 0, 1, 0)
-            closeBtn.BackgroundTransparency = 1
-            closeBtn.Text = ""
-            closeBtn.ZIndex = 13
-            closeBtn.Parent = btn
-            closeBtn.MouseButton1Click:Connect(function()
-                self:destroy()
-            end)
-        end
-    end
-    
-    -- Output area
+    -- Output Area
     local scrollFrame = Instance.new("ScrollingFrame")
-    scrollFrame.Name = "Output"
-    scrollFrame.Size = UDim2.new(1, -30, 1, -75)
-    scrollFrame.Position = UDim2.new(0, 15, 0, 35)
+    scrollFrame.Size = UDim2.new(1, -20, 1, -70)
+    scrollFrame.Position = UDim2.new(0, 10, 0, 35)
     scrollFrame.BackgroundTransparency = 1
-    scrollFrame.BorderSizePixel = 0
     scrollFrame.ScrollBarThickness = 4
-    scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(70, 70, 70)
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    scrollFrame.ZIndex = 11
+    scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(60,60,60)
+    scrollFrame.CanvasSize = UDim2.new(0,0,0,0)
     scrollFrame.Parent = frame
+    self.scrollFrame = scrollFrame
     
     local outputText = Instance.new("TextLabel")
-    outputText.Name = "Text"
-    outputText.Size = UDim2.new(1, -10, 1, 0)
-    outputText.Position = UDim2.new(0, 5, 0, 0)
+    outputText.Size = UDim2.new(1, 0, 1, 0)
     outputText.BackgroundTransparency = 1
     outputText.Text = ""
     outputText.TextColor3 = self.textColor
@@ -461,57 +181,33 @@ function TerminalLibrary:createUI()
     outputText.Font = Enum.Font.Code
     outputText.TextXAlignment = Enum.TextXAlignment.Left
     outputText.TextYAlignment = Enum.TextYAlignment.Top
-    outputText.TextWrapped = true
     outputText.RichText = true
-    outputText.ZIndex = 12
-    outputText.LineHeight = 1.2
+    outputText.TextWrapped = true
     outputText.Parent = scrollFrame
+    self.outputText = outputText
     
-    -- Input area
+    -- Input Area
     local inputFrame = Instance.new("Frame")
-    inputFrame.Name = "InputFrame"
-    inputFrame.Size = UDim2.new(1, -30, 0, 32)
-    inputFrame.Position = UDim2.new(0, 15, 1, -40)
+    inputFrame.Size = UDim2.new(1, -20, 0, 25)
+    inputFrame.Position = UDim2.new(0, 10, 1, -30)
     inputFrame.BackgroundTransparency = 1
-    inputFrame.BorderSizePixel = 0
-    inputFrame.ZIndex = 11
     inputFrame.Parent = frame
     
     local promptLabel = Instance.new("TextLabel")
-    promptLabel.Name = "Prompt"
-    promptLabel.Size = UDim2.new(0, 400, 1, 0)
-    promptLabel.Position = UDim2.new(0, 0, 0, 0)
+    promptLabel.Size = UDim2.new(0, 10, 1, 0) 
     promptLabel.BackgroundTransparency = 1
-    promptLabel.Text = ""
-    promptLabel.TextColor3 = self.accentColor
+    promptLabel.Text = "" -- Dinamik olarak güncellenecek
+    promptLabel.TextColor3 = self.archBlue
     promptLabel.TextSize = self.fontSize
     promptLabel.Font = Enum.Font.Code
     promptLabel.TextXAlignment = Enum.TextXAlignment.Left
     promptLabel.RichText = true
-    promptLabel.ZIndex = 12
     promptLabel.Parent = inputFrame
-    
-    local cursor = Instance.new("Frame")
-    cursor.Name = "Cursor"
-    cursor.Size = UDim2.new(0, 8, 0, 16)
-    cursor.Position = UDim2.new(0, 400, 0, 8)
-    cursor.BackgroundColor3 = self.textColor
-    cursor.BorderSizePixel = 0
-    cursor.ZIndex = 13
-    cursor.Visible = false
-    cursor.Parent = inputFrame
-    
-    task.spawn(function()
-        while cursor and cursor.Parent do
-            cursor.Visible = not cursor.Visible
-            task.wait(0.5)
-        end
-    end)
+    self.promptLabel = promptLabel
     
     local inputBox = Instance.new("TextBox")
-    inputBox.Name = "Input"
-    inputBox.Size = UDim2.new(1, -410, 1, -8)
-    inputBox.Position = UDim2.new(0, 405, 0, 4)
+    inputBox.Position = UDim2.new(0, 10, 0, 0)
+    inputBox.Size = UDim2.new(1, -10, 1, 0)
     inputBox.BackgroundTransparency = 1
     inputBox.Text = ""
     inputBox.TextColor3 = self.textColor
@@ -519,404 +215,246 @@ function TerminalLibrary:createUI()
     inputBox.Font = Enum.Font.Code
     inputBox.TextXAlignment = Enum.TextXAlignment.Left
     inputBox.ClearTextOnFocus = false
-    inputBox.ZIndex = 12
     inputBox.Visible = false
     inputBox.Parent = inputFrame
+    self.inputBox = inputBox
+    
+    -- Cursor logic
+    local cursor = Instance.new("Frame")
+    cursor.Size = UDim2.new(0, 8, 0, 16)
+    cursor.BackgroundColor3 = self.textColor
+    cursor.Visible = false
+    cursor.Parent = inputFrame
+    self.cursor = cursor
+
+    task.spawn(function()
+        while cursor.Parent do
+            cursor.Visible = not cursor.Visible
+            task.wait(0.5)
+        end
+    end)
+    
+    -- Event Listeners
+    if self.draggable then
+        self:makeDraggable(frame, titleBar)
+    end
+    
+    inputBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local promptSize = game:GetService("TextService"):GetTextSize(promptLabel.Text, self.fontSize, Enum.Font.Code, Vector2.new(1000, 25))
+        local textSize = game:GetService("TextService"):GetTextSize(inputBox.Text, self.fontSize, Enum.Font.Code, Vector2.new(1000, 25))
+        
+        promptLabel.Size = UDim2.new(0, promptSize.X, 1, 0)
+        inputBox.Position = UDim2.new(0, promptSize.X + 5, 0, 0)
+        inputBox.Size = UDim2.new(1, -(promptSize.X + 5), 1, 0)
+        cursor.Position = UDim2.new(0, promptSize.X + 5 + textSize.X, 0, 4)
+    end)
+    
+    inputBox.FocusLost:Connect(function(enter)
+        if enter and not self.booting then
+            self:executeCommand(inputBox.Text)
+            inputBox.Text = ""
+            self.historyIndex = 0
+            task.wait()
+            inputBox:CaptureFocus()
+        end
+    end)
     
     self.gui = sg
     self.frame = frame
-    self.bg = bg
-    self.scrollFrame = scrollFrame
-    self.outputText = outputText
-    self.inputBox = inputBox
-    self.promptLabel = promptLabel
-    self.cursor = cursor
-    self.titleLabel = title
-    self.matrixCanvas = matrixCanvas
-    
-    self:makeDraggable(frame, titleBar)
-    self:setupInput()
 end
 
-function TerminalLibrary:setupInput()
-    self.inputBox:GetPropertyChangedSignal("Text"):Connect(function()
-        local textBounds = game:GetService("TextService"):GetTextSize(
-            self.inputBox.Text,
-            self.fontSize,
-            Enum.Font.Code,
-            Vector2.new(1000, 1000)
-        )
-        self.cursor.Position = UDim2.new(0, 405 + textBounds.X, 0, 8)
-    end)
-    
-    self.inputBox.FocusLost:Connect(function(enterPressed)
-        if enterPressed and not self.booting then
-            self:executeCommand(self.inputBox.Text)
-            self.inputBox.Text = ""
-            self.historyIndex = 0
-            task.wait()
-            self.inputBox:CaptureFocus()
-        end
-    end)
-    
-    local UserInputService = game:GetService("UserInputService")
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if self.inputBox:IsFocused() and not self.booting then
-            if input.KeyCode == Enum.KeyCode.Up then
-                self:navigateHistory(-1)
-            elseif input.KeyCode == Enum.KeyCode.Down then
-                self:navigateHistory(1)
-            elseif input.KeyCode == Enum.KeyCode.L and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-                self:clear()
-            elseif input.KeyCode == Enum.KeyCode.C and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-                self:writeLine("^C", self.textColor)
-                self:updatePrompt()
-                self.inputBox.Text = ""
-            end
-        end
-    end)
-end
+-- --- API FONKSİYONLARI ---
 
--- Public API Methods
-
-function TerminalLibrary:addCommand(name, callback, description)
+-- Özel Komut Ekleme
+function Terminal:AddCommand(name, callback, description)
     self.commands[name:lower()] = {
         callback = callback,
-        description = description or "No description available"
+        description = description or "Custom command"
     }
 end
 
-function TerminalLibrary:removeCommand(name)
-    self.commands[name:lower()] = nil
+-- Terminale Yazı Yazdırma
+function Terminal:Print(text)
+    self:writeLineColored(text)
 end
 
-function TerminalLibrary:writeLine(text, color)
-    color = color or self.textColor
-    local r, g, b = math.floor(color.R * 255), math.floor(color.G * 255), math.floor(color.B * 255)
-    table.insert(self.output, "<font color='rgb(" .. r .. "," .. g .. "," .. b .. ")'>" .. text .. "</font>")
-    
-    if #self.output > self.maxLines then
-        table.remove(self.output, 1)
-    end
-    
-    self:updateOutput()
-end
-
-function TerminalLibrary:writeSuccess(text)
-    self:writeLine(text, self.successColor)
-end
-
-function TerminalLibrary:writeError(text)
-    self:writeLine(text, self.errorColor)
-end
-
-function TerminalLibrary:writeWarning(text)
-    self:writeLine(text, self.warningColor)
-end
-
-function TerminalLibrary:clear()
+-- Terminali Temizleme
+function Terminal:Clear()
     self.output = {}
     self:updateOutput()
 end
 
-function TerminalLibrary:show()
-    self.gui.Enabled = true
-    self.bg.Visible = true
-    if not self.booting then
+-- Terminali Kapatma/Yok Etme
+function Terminal:Destroy()
+    if self.gui then self.gui:Destroy() end
+    self = nil
+end
+
+-- --- İÇ FONKSİYONLAR (CORE) ---
+
+function Terminal:writeLineColored(text)
+    table.insert(self.output, text)
+    if #self.output > self.maxLines then table.remove(self.output, 1) end
+    self:updateOutput()
+end
+
+function Terminal:updateOutput()
+    self.outputText.Text = table.concat(self.output, "\n")
+    local bounds = self.outputText.TextBounds
+    self.scrollFrame.CanvasSize = UDim2.new(0, 0, 0, bounds.Y + 30)
+    self.scrollFrame.CanvasPosition = Vector2.new(0, self.scrollFrame.CanvasSize.Y.Offset)
+end
+
+function Terminal:updatePrompt()
+    -- Renkli prompt metni
+    local userColor = "rgb("..math.floor(self.green.R*255)..","..math.floor(self.green.G*255)..","..math.floor(self.green.B*255)..")"
+    local hostColor = "rgb("..math.floor(self.archBlue.R*255)..","..math.floor(self.archBlue.G*255)..","..math.floor(self.archBlue.B*255)..")"
+    local dirColor = "rgb("..math.floor(self.yellow.R*255)..","..math.floor(self.yellow.G*255)..","..math.floor(self.yellow.B*255)..")"
+    
+    self.promptLabel.Text = string.format("[<font color='%s'>%s</font>@<font color='%s'>%s</font> <font color='%s'>%s</font>]$ ", 
+        userColor, self.username, hostColor, self.hostname, dirColor, self.currentDir)
+    
+    self.titleLabel.Text = self.username .. "@" .. self.hostname .. ":" .. self.currentDir
+    
+    -- Input box pozisyonunu güncellemek için tetikle
+    self.inputBox.Text = self.inputBox.Text .. " "
+    self.inputBox.Text = string.sub(self.inputBox.Text, 1, -2)
+end
+
+function Terminal:executeCommand(input)
+    input = input:match("^%s*(.-)%s*$")
+    if input == "" then self:writeLineColored(""); self:updatePrompt(); return end
+    
+    table.insert(self.history, input)
+    self:writeLineColored(self.promptLabel.Text .. input)
+    
+    local parts = {}
+    for part in input:gmatch("%S+") do table.insert(parts, part) end
+    local cmdName = table.remove(parts, 1):lower()
+    
+    if self.commands[cmdName] then
+        local success, result = pcall(self.commands[cmdName].callback, parts)
+        if success and result then self:writeLineColored(result)
+        elseif not success then self:writeLineColored("<font color='rgb(255,85,85)'>Error:</font> " .. tostring(result)) end
+    else
+        self:writeLineColored("bash: " .. cmdName .. ": command not found")
+    end
+    self:updatePrompt()
+end
+
+function Terminal:registerDefaultCommands()
+    self:AddCommand("clear", function() self:Clear() end, "Clears terminal")
+    self:AddCommand("echo", function(args) return table.concat(args, " ") end, "Print args")
+    self:AddCommand("help", function() 
+        local list = {}
+        for k,v in pairs(self.commands) do table.insert(list, k) end
+        table.sort(list)
+        return "<font color='rgb(23,147,209)'>Commands:</font> " .. table.concat(list, ", ")
+    end, "List commands")
+    self:AddCommand("matrix", function() return self:toggleMatrix() end, "Toggle matrix effect")
+    self:AddCommand("exit", function() self:Destroy() end, "Close terminal")
+    
+    -- Diğer temel komutlar (ls, cd, pwd, whoami vb.) buraya eklenebilir.
+    -- Kodun kısalığı için temel örnekler bırakıldı.
+end
+
+function Terminal:startBootSequence()
+    task.spawn(function()
+        self:Print("<font color='rgb(203,204,205)'>GNU GRUB version 2.12</font>")
+        task.wait(0.5)
+        self:Print("<font color='rgb(23,147,209)'>Arch Linux Booting...</font>")
+        
+        local bootMsgs = {
+            "[  OK  ] Started Network Manager",
+            "[  OK  ] Reached target Graphical Interface",
+        }
+        for _, msg in ipairs(bootMsgs) do
+            self:Print("<font color='rgb(122,192,101)'>"..msg.."</font>")
+            task.wait(0.1)
+        end
+        
+        self.booting = false
+        self:registerDefaultCommands()
+        self:updatePrompt()
+        self.inputBox.Visible = true
+        self.cursor.Visible = true
+        self:Print("")
+        self:Print("Welcome to <font color='rgb(23,147,209)'>Arch Linux</font> UI Library")
+        task.wait()
         self.inputBox:CaptureFocus()
-    end
-    if self.onShow then
-        self.onShow()
-    end
+    end)
 end
 
-function TerminalLibrary:hide()
-    self.gui.Enabled = false
-    self.bg.Visible = false
-    if self.onHide then
-        self.onHide()
-    end
-end
-
-function TerminalLibrary:destroy()
-    if self.onDestroy then
-        self.onDestroy()
-    end
-    if self.gui then
-        self.gui:Destroy()
-    end
-end
-
-function TerminalLibrary:toggleMatrix()
+-- Matrix Efekti
+function Terminal:toggleMatrix()
     self.matrixEnabled = not self.matrixEnabled
     self.matrixCanvas.Visible = self.matrixEnabled
     
     if self.matrixEnabled then
         self:createMatrixEffect()
-        return true
-    end
-    return false
-end
-
-function TerminalLibrary:setTheme(themeName)
-    local theme = Themes[themeName]
-    if not theme then return false end
-    
-    self.bgColor = theme.bgColor
-    self.textColor = theme.textColor
-    self.accentColor = theme.accentColor
-    self.successColor = theme.successColor
-    self.errorColor = theme.errorColor
-    self.warningColor = theme.warningColor
-    
-    self.frame.BackgroundColor3 = self.bgColor
-    self.outputText.TextColor3 = self.textColor
-    self.inputBox.TextColor3 = self.textColor
-    self.promptLabel.TextColor3 = self.accentColor
-    
-    return true
-end
-
--- Internal Methods
-
-function TerminalLibrary:executeCommand(input)
-    input = input:match("^%s*(.-)%s*$")
-    
-    if input == "" then
-        self:writeLine("")
-        self:updatePrompt()
-        return
-    end
-    
-    table.insert(self.history, input)
-    if #self.history > 100 then
-        table.remove(self.history, 1)
-    end
-    
-    local promptText = self:formatPrompt()
-    self:writeLine(promptText .. input, self.textColor)
-    
-    local parts = {}
-    for part in input:gmatch("%S+") do
-        table.insert(parts, part)
-    end
-    
-    local cmdName = parts[1]:lower()
-    table.remove(parts, 1)
-    
-    local cmd = self.commands[cmdName]
-    if cmd then
-        local success, result = pcall(cmd.callback, parts)
-        if success then
-            if result and result ~= "" then
-                self:writeLine(result, self.textColor)
-            end
-        else
-            self:writeError("Error: " .. tostring(result))
-        end
+        return "<font color='rgb(0,255,65)'>Matrix effect enabled</font>"
     else
-        self:writeError(cmdName .. ": command not found")
-    end
-    
-    if self.onCommandExecute then
-        self.onCommandExecute(cmdName, parts)
-    end
-    
-    self:updatePrompt()
-end
-
-function TerminalLibrary:formatPrompt()
-    local prompt = self.promptFormat
-    prompt = prompt:gsub("<user>", "<font color='rgb(" .. math.floor(self.successColor.R * 255) .. "," .. math.floor(self.successColor.G * 255) .. "," .. math.floor(self.successColor.B * 255) .. ")'>" .. self.username .. "</font>")
-    prompt = prompt:gsub("<host>", "<font color='rgb(" .. math.floor(self.accentColor.R * 255) .. "," .. math.floor(self.accentColor.G * 255) .. "," .. math.floor(self.accentColor.B * 255) .. ")'>" .. self.hostname .. "</font>")
-    prompt = prompt:gsub("<dir>", "<font color='rgb(" .. math.floor(self.warningColor.R * 255) .. "," .. math.floor(self.warningColor.G * 255) .. "," .. math.floor(self.warningColor.B * 255) .. ")'>" .. self.currentDir .. "</font>")
-    return prompt
-end
-
-function TerminalLibrary:updatePrompt()
-    self.promptLabel.Text = self:formatPrompt()
-    self.titleLabel.Text = "  Terminal - " .. self.username .. "@" .. self.hostname .. ":" .. self.currentDir
-end
-
-function TerminalLibrary:updateOutput()
-    self.outputText.Text = table.concat(self.output, "\n")
-    
-    local textBounds = self.outputText.TextBounds
-    self.scrollFrame.CanvasSize = UDim2.new(0, 0, 0, textBounds.Y + 30)
-    self.scrollFrame.CanvasPosition = Vector2.new(0, self.scrollFrame.CanvasSize.Y.Offset)
-end
-
-function TerminalLibrary:navigateHistory(direction)
-    if #self.history == 0 then return end
-    
-    self.historyIndex = math.clamp(self.historyIndex + direction, 0, #self.history)
-    
-    if self.historyIndex == 0 then
-        self.inputBox.Text = ""
-    else
-        self.inputBox.Text = self.history[#self.history - self.historyIndex + 1]
+        return "<font color='rgb(122,192,101)'>Matrix effect disabled</font>"
     end
 end
 
-function TerminalLibrary:makeDraggable(frame, dragHandle)
-    local dragging, dragStart, startPos
-    local UserInputService = game:GetService("UserInputService")
-    
-    dragHandle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = frame.Position
-        end
-    end)
-    
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStart
-            frame.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + delta.X,
-                startPos.Y.Scale, startPos.Y.Offset + delta.Y
-            )
-        end
-    end)
-    
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-end
-
-function TerminalLibrary:createMatrixEffect()
+function Terminal:createMatrixEffect()
     self.matrixCanvas:ClearAllChildren()
-    self.matrixColumns = {}
-    
-    local matrixChars = {"0", "1", "ア", "イ", "ウ", "エ", "オ", "カ", "キ"}
-    local numColumns = 20
-    local columnWidth = self.frame.AbsoluteSize.X / numColumns
-    
-    for i = 1, numColumns do
-        local column = Instance.new("Frame")
-        column.Name = "Column" .. i
-        column.Size = UDim2.new(0, columnWidth, 1, 0)
-        column.Position = UDim2.new(0, (i - 1) * columnWidth, 0, 0)
-        column.BackgroundTransparency = 1
-        column.BorderSizePixel = 0
-        column.ZIndex = 9
-        column.Parent = self.matrixCanvas
-        
-        local numLabels = 12
-        local columnData = {
-            frame = column,
-            labels = {},
-            speed = math.random(20, 50) / 10,
-            position = math.random(-400, 0),
-            length = math.random(6, 12),
-            active = true,
-            updateCounter = 0
-        }
-        
-        for j = 1, numLabels do
-            local label = Instance.new("TextLabel")
-            label.Size = UDim2.new(1, 0, 0, 24)
-            label.BackgroundTransparency = 1
-            label.Text = matrixChars[math.random(1, #matrixChars)]
-            label.TextColor3 = Color3.fromRGB(0, 255, 65)
-            label.TextSize = 14
-            label.Font = Enum.Font.Code
-            label.TextTransparency = 1
-            label.ZIndex = 9
-            label.Parent = column
-            
-            table.insert(columnData.labels, label)
-        end
-        
-        table.insert(self.matrixColumns, columnData)
-    end
+    local cols = 20
+    local width = self.frame.AbsoluteSize.X / cols
+    local chars = {"0", "1", "£", "¥"}
     
     task.spawn(function()
-        while self.matrixEnabled and self.matrixCanvas do
-            for _, col in ipairs(self.matrixColumns) do
-                if col.active then
-                    col.position = col.position + col.speed
-                    col.updateCounter = col.updateCounter + 1
-                    
-                    for i, label in ipairs(col.labels) do
-                        local yPos = col.position + (i * 24)
-                        label.Position = UDim2.new(0, 0, 0, yPos)
-                        
-                        local distFromHead = i
-                        if distFromHead <= col.length then
-                            if distFromHead == 1 then
-                                label.TextColor3 = Color3.fromRGB(200, 255, 200)
-                                label.TextTransparency = 0
-                            else
-                                local fade = distFromHead / col.length
-                                label.TextColor3 = Color3.fromRGB(0, 255, 65)
-                                label.TextTransparency = fade
-                            end
-                            
-                            if col.updateCounter % 10 == 0 and math.random() < 0.3 then
-                                label.Text = matrixChars[math.random(1, #matrixChars)]
-                            end
-                        else
-                            label.TextTransparency = 1
-                        end
-                    end
-                    
-                    if col.position > self.matrixCanvas.AbsoluteSize.Y + 100 then
-                        col.position = math.random(-300, -100)
-                        col.speed = math.random(20, 50) / 10
-                        col.length = math.random(6, 12)
-                    end
-                end
+        while self.matrixEnabled and self.matrixCanvas.Parent do
+            -- Basit matrix mantığı (Performans için optimize edildi)
+            if math.random() > 0.8 then
+                local drop = Instance.new("TextLabel")
+                drop.Position = UDim2.new(0, math.random(0, cols)*width, 0, -20)
+                drop.Size = UDim2.new(0, width, 0, 20)
+                drop.BackgroundTransparency = 1
+                drop.Text = chars[math.random(1, #chars)]
+                drop.TextColor3 = Color3.fromRGB(0, 255, 65)
+                drop.Parent = self.matrixCanvas
+                
+                game:GetService("TweenService"):Create(drop, TweenInfo.new(2), {
+                    Position = UDim2.new(drop.Position.X.Scale, drop.Position.X.Offset, 1, 0),
+                    TextTransparency = 1
+                }):Play()
+                
+                game:GetService("Debris"):AddItem(drop, 2)
             end
-            
             task.wait(0.05)
         end
     end)
 end
 
-function TerminalLibrary:startBootSequence()
-    task.spawn(function()
-        self:writeLine("                     GNU GRUB  version 2.12", self.textColor)
-        self:writeLine("")
-        task.wait(0.5)
-        
-        local archColor = self.accentColor
-        local r, g, b = math.floor(archColor.R * 255), math.floor(archColor.G * 255), math.floor(archColor.B * 255)
-        local ac = "rgb(" .. r .. "," .. g .. "," .. b .. ")"
-        
-        self:writeLine(" <font color='" .. ac .. "'>┌────────────────────────────────────────────────────────────┐</font>")
-        self:writeLine(" <font color='" .. ac .. "'>│</font> <font color='rgb(255,255,255)' weight='bold'>  Arch Linux                                               </font> <font color='" .. ac .. "'>│</font>")
-        self:writeLine(" <font color='" .. ac .. "'>│</font>   Arch Linux (fallback initramfs)                        <font color='" .. ac .. "'>│</font>")
-        self:writeLine(" <font color='" .. ac .. "'>└────────────────────────────────────────────────────────────┘</font>")
-        self:writeLine("")
-        task.wait(0.8)
-        
-        self:writeLine("Loading Linux...", self.textColor)
-        task.wait(0.3)
-        
-        self:writeSuccess("[  OK  ] Reached target Multi-User System")
-        task.wait(0.2)
-        
-        self:writeLine("")
-        self:writeLine(self.hostname .. " login: " .. self.username, self.textColor)
-        task.wait(0.3)
-        
-        self:writeLine("Last login: " .. os.date("%a %b %d %H:%M:%S %Y"), self.textColor)
-        self:writeLine("")
-        
-        self.booting = false
-        self:updatePrompt()
-        self.inputBox.
--- Just paste the entire Terminal Library code I created into a LocalScript
--- Then at the bottom, add this:
+function Terminal:makeDraggable(frame, dragHandle)
+	local dragging, dragStart, startPos
+	local UserInputService = game:GetService("UserInputService")
+	
+	dragHandle.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = true
+			dragStart = input.Position
+			startPos = frame.Position
+		end
+	end)
+	
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+			local delta = input.Position - dragStart
+			frame.Position = UDim2.new(
+				startPos.X.Scale, startPos.X.Offset + delta.X,
+				startPos.Y.Scale, startPos.Y.Offset + delta.Y
+			)
+		end
+	end)
+	
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = false
+		end
+	end)
+end
 
-local terminal = TerminalLibrary.new({
-    username = game.Players.LocalPlayer.Name:lower(),
-    hostname = "localhost",
-    theme = "arch"
-})
-
-terminal:show()
+return ArchUI
