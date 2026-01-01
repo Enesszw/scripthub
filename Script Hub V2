@@ -910,3 +910,13 @@ function TerminalLibrary:startBootSequence()
         self.booting = false
         self:updatePrompt()
         self.inputBox.
+-- Just paste the entire Terminal Library code I created into a LocalScript
+-- Then at the bottom, add this:
+
+local terminal = TerminalLibrary.new({
+    username = game.Players.LocalPlayer.Name:lower(),
+    hostname = "localhost",
+    theme = "arch"
+})
+
+terminal:show()
